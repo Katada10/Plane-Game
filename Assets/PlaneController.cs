@@ -7,19 +7,20 @@ using UnityEngine.UI;
 public class PlaneController : MonoBehaviour {
 
 #region variables
-    public float  maxSpeed, takeOffSpeed, lift, turn;
-    public float xLimDown, xLimUp, zLimDown, zLimUp;
+    public float  maxSpeed, takeOffSpeed, lift, turn, drag ;
+    public float xLimDown, xLimUp, zLimDown, zLimUp, minMoveSpeed;
     public Slider thrust;
     public Transform target;
     
     private Rigidbody rb;
-    private bool inAir;
+    private bool inAir, autoPilot = true;
+    private AutoPilot auto;
     #endregion
-
 
     void Start()
     {
         inAir = false;
+        auto = GetComponent<AutoPilot>();
         thrust.maxValue = maxSpeed;
         rb = GetComponent<Rigidbody>();
     }
@@ -48,7 +49,7 @@ public class PlaneController : MonoBehaviour {
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 1);
         }
     }
-
+    
     void CheckAllowTakeOff(float v)
     {
         if(thrust.value >= takeOffSpeed)
@@ -61,7 +62,7 @@ public class PlaneController : MonoBehaviour {
             else
             {
                 rb.useGravity = false;
-                rb.drag = 2;
+                rb.drag = drag;
                 transform.Rotate(v * lift * Time.deltaTime, 0, 0);
                 
                 if (transform.eulerAngles.x >= xLimDown && transform.eulerAngles.x <= (xLimDown + xLimUp))
@@ -76,12 +77,17 @@ public class PlaneController : MonoBehaviour {
                     }
                 }
 
+                if(thrust.value < minMoveSpeed)
+                {
+                    rb.drag = 1;
+                    rb.useGravity = true;
+                }
                 RecalibratePitch(v);
             }
         }
         
     }
-
+    
     void Roll(float h)
     {
         transform.Rotate(0, 0, turn * -h * Time.deltaTime, Space.Self);
@@ -115,28 +121,34 @@ public class PlaneController : MonoBehaviour {
     }
 
     void FixedUpdate () {
+
         
-        #region thrust
-        rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
-        if(rb.velocity.z == maxSpeed)
+            #region thrust
+        if(autoPilot)
         {
-            rb.velocity = rb.velocity.normalized * thrust.value;
+            thrust.interactable = false;
+            thrust.value = auto.speed;
         }
-        #endregion
+            rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
+            if (rb.velocity.z == maxSpeed)
+            {
+                rb.velocity = rb.velocity.normalized * thrust.value;
+            }
+            #endregion
 
-        #region takeoff
-        var v = Input.GetAxis("Vertical");
-        CheckAllowTakeOff(v);
+            #region takeoff
+            var v = Input.GetAxis("Vertical");
+            CheckAllowTakeOff(v);
 
-        #endregion
+            #endregion
 
-        #region turn
-        var h = Input.GetAxisRaw("Horizontal");
-        Roll(h);
+            #region turn
+            var h = Input.GetAxisRaw("Horizontal");
+            Roll(h);
 
-        #endregion
+            #endregion
+        
 
-        //How to make a yes
     }
 
 }
