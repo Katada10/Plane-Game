@@ -47,15 +47,15 @@ public class PlaneController : MonoBehaviour {
     {
         if (v == 0 && transform.rotation.eulerAngles.x != 0)
         {
-            Quaternion targetRotation = Quaternion.Euler(new Vector3(0, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
+            Quaternion targetRotation = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 1);
         }
     }
 
     void RecalibratePitch()
     {
-        Quaternion targ = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
-        transform.rotation = Quaternion.Lerp(transform.rotation, targ, Time.deltaTime * 1);
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
+        rb.constraints = RigidbodyConstraints.None;
     }
 
     void CheckAllowTakeOff(float v)
@@ -136,12 +136,13 @@ public class PlaneController : MonoBehaviour {
             {
                 rb.useGravity = false;
                 rb.drag = drag;
-
-                Quaternion target = Quaternion.Euler(new Vector3(-45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
-                transform.rotation = Quaternion.Lerp(transform.rotation, target, Time.deltaTime * 1);
-
-                if (transform.position.y >= auto.height)
+                
+                    //Quaternion target = Quaternion.Euler(new Vector3(-45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
+                    transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
+                
+                if (Mathf.Ceil(transform.position.y) == auto.height)
                 {
+                    rb.constraints = RigidbodyConstraints.FreezePositionY;
                     RecalibratePitch();
                 }
             }
@@ -150,8 +151,12 @@ public class PlaneController : MonoBehaviour {
 
     float SliderFill(float currentValue, float target)
     {
-       currentValue = Mathf.MoveTowards(currentValue, target, Time.deltaTime * (SliderSmoothness += 0.1f));
-        return currentValue;
+        if (auto.speed != 0)
+        {
+            currentValue = Mathf.MoveTowards(currentValue, target, Time.deltaTime * (SliderSmoothness += 0.05f));
+            return currentValue;
+        }
+        return 0f;
     }
 
     void PilotRoll()
@@ -168,6 +173,9 @@ public class PlaneController : MonoBehaviour {
 
     void FixedUpdate()
     {
+        Debug.Log(Mathf.Ceil(transform.position.y));
+        //if(inAir)
+            //transform.position = new Vector3(transform.position.x, Mathf.Ceil(transform.position.y), transform.position.z);
         #region thrust
         if (autoPilot)
         {
@@ -175,6 +183,8 @@ public class PlaneController : MonoBehaviour {
             thrust.value = SliderFill(thrust.value, auto.speed);
         }
         rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
+
+
         if (rb.velocity.z == maxSpeed)
         {
             rb.velocity = rb.velocity.normalized * thrust.value;
