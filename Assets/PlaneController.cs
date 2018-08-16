@@ -49,7 +49,13 @@ public class PlaneController : MonoBehaviour {
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 1);
         }
     }
-    
+
+    void RecalibratePitch()
+    {
+        Quaternion targ = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
+        transform.rotation = Quaternion.Lerp(transform.rotation, targ, Time.deltaTime * 1);
+    }
+
     void CheckAllowTakeOff(float v)
     {
         if(thrust.value >= takeOffSpeed)
@@ -76,12 +82,7 @@ public class PlaneController : MonoBehaviour {
                        transform.rotation = Quaternion.Euler(xLimDown, transform.eulerAngles.y, transform.eulerAngles.z);
                     }
                 }
-
-                if(thrust.value < minMoveSpeed)
-                {
-                    rb.drag = 1;
-                    rb.useGravity = true;
-                }
+                
                 RecalibratePitch(v);
             }
         }
@@ -120,34 +121,82 @@ public class PlaneController : MonoBehaviour {
         }
     }
 
-    void FixedUpdate () {
+    void PilotTakeOff()
+    {
+        if (thrust.value >= takeOffSpeed)
+        {
+            if (!inAir)
+            {
+                rb.velocity += Vector3.up  * lift * Time.deltaTime;
+                rb.drag = 0;
+            }
+            else
+            {
+                rb.useGravity = false;
+                rb.drag = drag;
 
-        
-            #region thrust
-        if(autoPilot)
+                Quaternion target = Quaternion.Euler(new Vector3(-45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
+                transform.rotation = Quaternion.Lerp(transform.rotation, target, Time.deltaTime * 1);
+
+                if (transform.position.y >= auto.height)
+                {
+                    RecalibratePitch();
+                }
+                /*if (transform.eulerAngles.x >= xLimDown && transform.eulerAngles.x <= (xLimDown + xLimUp))
+                {
+                    if (v < 0)
+                    {
+                        transform.rotation = Quaternion.Euler(xLimDown + xLimUp, transform.eulerAngles.y, transform.eulerAngles.z);
+                    }
+                    if (v > 0)
+                    {
+                        transform.rotation = Quaternion.Euler(xLimDown, transform.eulerAngles.y, transform.eulerAngles.z);
+                    }
+                }*/
+            }
+        }
+    }
+
+    void FixedUpdate()
+    {
+
+
+        #region thrust
+        if (autoPilot)
         {
             thrust.interactable = false;
             thrust.value = auto.speed;
         }
-            rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
-            if (rb.velocity.z == maxSpeed)
-            {
-                rb.velocity = rb.velocity.normalized * thrust.value;
-            }
-            #endregion
+        rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
+        if (rb.velocity.z == maxSpeed)
+        {
+            rb.velocity = rb.velocity.normalized * thrust.value;
+        }
+        if (rb.velocity.z < minMoveSpeed)
+        {
+            rb.useGravity = true;
+            rb.drag = 1;
+        }
+        #endregion
 
-            #region takeoff
+        #region takeoff
+        if (!autoPilot)
+        {
             var v = Input.GetAxis("Vertical");
             CheckAllowTakeOff(v);
+        }
+        else
+        {
+           PilotTakeOff();
+        }
 
-            #endregion
+        #endregion
 
-            #region turn
-            var h = Input.GetAxisRaw("Horizontal");
-            Roll(h);
+        #region turn
+        var h = Input.GetAxisRaw("Horizontal");
+        Roll(h);
 
-            #endregion
-        
+        #endregion
 
     }
 
