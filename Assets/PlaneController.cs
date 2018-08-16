@@ -16,7 +16,7 @@ public class PlaneController : MonoBehaviour {
     private Rigidbody rb;
     private bool inAir, autoPilot = true;
     private AutoPilot auto;
-
+  
     #endregion
 
     void Start()
@@ -47,14 +47,14 @@ public class PlaneController : MonoBehaviour {
     {
         if (v == 0 && transform.rotation.eulerAngles.x != 0)
         {
-            Quaternion targetRotation = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
-            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 1);
+            //Quaternion targetRotation = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
+            transform.rotation = Quaternion.Lerp(transform.rotation, target.rotation, Time.deltaTime * 1);
         }
     }
 
     void RecalibratePitch()
     {
-        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(0, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
+        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
         rb.constraints = RigidbodyConstraints.None;
     }
 
@@ -136,11 +136,9 @@ public class PlaneController : MonoBehaviour {
             {
                 rb.useGravity = false;
                 rb.drag = drag;
+                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
                 
-                    //Quaternion target = Quaternion.Euler(new Vector3(-45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
-                    transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
-                
-                if (Mathf.Ceil(transform.position.y) == auto.height)
+                if (Mathf.Ceil(transform.position.y) == (auto.height))
                 {
                     rb.constraints = RigidbodyConstraints.FreezePositionY;
                     RecalibratePitch();
