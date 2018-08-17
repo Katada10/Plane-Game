@@ -4,32 +4,39 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class PlaneController : MonoBehaviour {
-
-#region variables
-    public float  maxSpeed, takeOffSpeed, lift, turn, drag ;
+public class PlaneController : MonoBehaviour
+{
+    public float maxSpeed, takeOffSpeed, lift, turn, drag, weakDrag;
     public float xLimDown, xLimUp, zLimDown, zLimUp, minMoveSpeed;
-    public float SliderSmoothness;
+    public float SliderSensitivity;
     public Slider thrust;
-    public Transform target;
     
     private Rigidbody rb;
     private bool inAir, autoPilot = true;
     private AutoPilot auto;
-  
-    #endregion
 
     void Start()
     {
         inAir = false;
-        auto = GetComponent<AutoPilot>();
         thrust.maxValue = maxSpeed;
+
+        auto = GetComponent<AutoPilot>();
         rb = GetComponent<Rigidbody>();
+    }
+
+    float SliderFill(float currentValue, float target)
+    {
+        if (auto.speed != 0)
+        {
+            currentValue = Mathf.MoveTowards(currentValue, target, Time.deltaTime * (SliderSensitivity += 0.05f));
+            return currentValue;
+        }
+        return 0f;
     }
 
     void OnCollisionExit(Collision col)
     {
-        if(col.gameObject.name == "Terrain")
+        if (col.gameObject.name == "Terrain")
         {
             inAir = true;
         }
@@ -47,71 +54,17 @@ public class PlaneController : MonoBehaviour {
     {
         if (v == 0 && transform.rotation.eulerAngles.x != 0)
         {
-            //Quaternion targetRotation = Quaternion.Euler(new Vector3(45, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z));
-            transform.rotation = Quaternion.Lerp(transform.rotation, target.rotation, Time.deltaTime * 1);
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-transform.eulerAngles.x, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
         }
     }
 
     void RecalibratePitch()
-    {
-        transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
+    { 
+        if (transform.rotation.eulerAngles.x != 0)
+        {
+            transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(new Vector3(0, transform.eulerAngles.y, transform.eulerAngles.z)), Time.deltaTime * 1);
+        }
         rb.constraints = RigidbodyConstraints.None;
-    }
-
-    void CheckAllowTakeOff(float v)
-    {
-        if(thrust.value >= takeOffSpeed)
-        {
-            if (!inAir)
-            {
-                rb.velocity += -Vector3.up * v * lift * Time.deltaTime;
-                rb.drag = 1;
-            }
-            else
-            {
-                rb.useGravity = false;
-                rb.drag = drag;
-                transform.Rotate(v * lift * Time.deltaTime, 0, 0);
-                
-                if (transform.eulerAngles.x >= xLimDown && transform.eulerAngles.x <= (xLimDown + xLimUp))
-                {
-                    if(v < 0)
-                    {
-                        transform.rotation = Quaternion.Euler(xLimDown + xLimUp, transform.eulerAngles.y, transform.eulerAngles.z);
-                    }
-                    if (v > 0)
-                    {
-                       transform.rotation = Quaternion.Euler(xLimDown, transform.eulerAngles.y, transform.eulerAngles.z);
-                    }
-                }
-                
-                RecalibratePitch(v);
-            }
-        }
-        
-    }
-    
-    void Roll(float h)
-    {
-        transform.Rotate(0, 0, turn * -h * Time.deltaTime, Space.Self);
-        if (transform.rotation.z <= -0.1 || transform.rotation.z >= 0.1)
-        {
-            transform.Rotate(-lift * Time.deltaTime, 0, 0);
-        }
-
-        if (transform.eulerAngles.z >= zLimDown && transform.eulerAngles.z <= (zLimDown + zLimUp))
-        {
-            if (h > 0)
-            {
-                transform.rotation = Quaternion.Euler(transform.eulerAngles.x, transform.eulerAngles.y, zLimDown + zLimUp);
-            }
-            if (h < 0)
-            {
-                transform.rotation = Quaternion.Euler(transform.eulerAngles.x, transform.eulerAngles.y, zLimDown);
-            }
-        }
-
-        RecalibratePitchH(h);
     }
 
     void RecalibratePitchH(float h)
@@ -123,22 +76,54 @@ public class PlaneController : MonoBehaviour {
         }
     }
 
+    void CheckAllowTakeOff(float v)
+    {
+        if (thrust.value >= takeOffSpeed && thrust.value >= minMoveSpeed)
+        {
+            if (!inAir)
+            {
+                rb.velocity += -Vector3.up * v * lift * Time.deltaTime;
+                rb.drag = weakDrag;
+            }
+            else
+            {
+                rb.useGravity = false;
+                rb.drag = drag;
+
+
+                if (Mathf.Floor(transform.eulerAngles.x) < xLimDown || Mathf.Floor(transform.eulerAngles.x) > xLimUp)
+                {
+                    transform.Rotate(v * lift * Time.deltaTime, 0, 0);
+                }
+              
+                RecalibratePitch(v);
+            }
+        }
+        
+    }
+
     void PilotTakeOff()
     {
         if (thrust.value >= takeOffSpeed)
         {
             if (!inAir)
             {
-                rb.velocity += Vector3.up  * lift * Time.deltaTime;
-                rb.drag = 1;
+                rb.velocity += Vector3.up * lift * Time.deltaTime;
+                rb.drag = weakDrag;
             }
             else
             {
                 rb.useGravity = false;
                 rb.drag = drag;
-                transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
-                
-                if (Mathf.Ceil(transform.position.y) == (auto.height))
+
+                if (Mathf.Floor(transform.eulerAngles.x) < xLimDown || Mathf.Floor(transform.eulerAngles.x) > xLimUp)
+                {
+                    transform.Rotate(-lift * Time.deltaTime, 0, 0);
+                }
+
+                //transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-15, transform.eulerAngles.y, transform.eulerAngles.z), Time.deltaTime * 1);
+
+                if (inAir && Mathf.Ceil(transform.position.y) == (auto.height))
                 {
                     rb.constraints = RigidbodyConstraints.FreezePositionY;
                     RecalibratePitch();
@@ -147,14 +132,18 @@ public class PlaneController : MonoBehaviour {
         }
     }
 
-    float SliderFill(float currentValue, float target)
+    void Roll(float h)
     {
-        if (auto.speed != 0)
+
+        if (Mathf.Floor(transform.eulerAngles.z) <= zLimDown || Mathf.Floor(transform.eulerAngles.z) >= zLimUp)
         {
-            currentValue = Mathf.MoveTowards(currentValue, target, Time.deltaTime * (SliderSmoothness += 0.05f));
-            return currentValue;
+            transform.Rotate(0, 0, turn * -h * Time.deltaTime, Space.Self);
+
         }
-        return 0f;
+        if (h != 0)
+            transform.Rotate(-lift * Time.deltaTime, 0, 0);
+        
+        RecalibratePitchH(h);
     }
 
     void PilotRoll()
@@ -164,24 +153,23 @@ public class PlaneController : MonoBehaviour {
 
         if (auto.heading != 0)
         {
+            rb.constraints = RigidbodyConstraints.FreezePositionY;
             transform.Rotate(-lift * Time.deltaTime, 0, 0);
         }
-
+        else
+        {
+            rb.constraints = RigidbodyConstraints.None;
+        }
     }
 
-    void FixedUpdate()
+    void TakeOff()
     {
-        Debug.Log(Mathf.Ceil(transform.position.y));
-        //if(inAir)
-            //transform.position = new Vector3(transform.position.x, Mathf.Ceil(transform.position.y), transform.position.z);
-        #region thrust
         if (autoPilot)
         {
             thrust.interactable = false;
             thrust.value = SliderFill(thrust.value, auto.speed);
         }
         rb.AddRelativeForce(Vector3.forward * thrust.value, ForceMode.Force);
-
 
         if (rb.velocity.z == maxSpeed)
         {
@@ -190,35 +178,30 @@ public class PlaneController : MonoBehaviour {
         if (rb.velocity.z < minMoveSpeed)
         {
             rb.useGravity = true;
-            rb.drag = 1;
+            rb.drag = weakDrag;
         }
-        #endregion
+    }
 
-        #region takeoff
+    void Rotating()
+    {
         if (!autoPilot)
         {
             var v = Input.GetAxis("Vertical");
-            CheckAllowTakeOff(v);
-        }
-        else
-        {
-           PilotTakeOff();
-        }
-
-        #endregion
-
-        #region turn
-        if (!autoPilot)
-        {
             var h = Input.GetAxisRaw("Horizontal");
+            
+            CheckAllowTakeOff(v);
             Roll(h);
         }
         else
         {
+            PilotTakeOff();
             PilotRoll();
         }
-        #endregion
-
     }
 
+    void FixedUpdate()
+    {
+        TakeOff();
+        Rotating();
+    }
 }
